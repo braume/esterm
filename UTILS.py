@@ -1,5 +1,5 @@
-def getINI(fichier, param = ''):
-    # global Dict
+﻿def getINI(fichier):
+    # global D
     D = {}
     # fichier = '/sys/' + fichier
     # Ouverture du fichier
@@ -19,9 +19,6 @@ def getINI(fichier, param = ''):
         if (line.find('=') != -1):
             # On découpe la ligne autour du "="
             parts = line.split('=')
-            # Si on a indiqué quel paramètre on souhaite lire et qu'on tombe sur le bon
-            if ((param != '') and (parts[0] == param)):
-                return parts[1]
             # On stocke tout dans le tableau (D['Code_pin'] = '0000')
             D[parts[0]] = parts[1]
         # On lit la ligne suivante

@@ -5,7 +5,7 @@ import UTILS
 
 D = UTILS.getINI('parameters.ini')
 
-ser = serial.Serial(D('port_number'), D('baudrate'), timeout=1)  # open first serial port
+ser = serial.Serial(int(D['port_number'])-1, int(D['baudrate']), timeout=1)  # open first serial port
 
 if ser.isOpen():
     print "The port " + ser.portstr +  " is open"
