@@ -2,8 +2,7 @@
 import UTILS
 
 D = UTILS.getINI('parameters.ini')
-
-UTILS.open_ser_list(D['registry_path'])
+res, ser = UTILS.open_ser_list(D['registry_path'])
     
     
 while 1:
@@ -24,17 +23,17 @@ while 1:
     if case == 0:
         print 'Please enter an integer ...'
     elif case == 1:
-        UTILS.atcmd('AT\r')
+        UTILS.atcmd('AT\r', ser)
     elif case == 2:
-        UTILS.atcmd('AT+CPIN=\"'+D['pin']+'\"\r')
+        UTILS.atcmd('AT+CPIN=\"'+D['pin']+'\"\r', ser)
     elif case == 3:
-        UTILS.atcmd('AT+CSQ\r')
+        UTILS.atcmd('AT+CSQ\r', ser)
     elif case == 4:
-        UTILS.atcmd('AT#WSCRIPT=\"'+D['upload']+ ',' +UTILS.size() + ', 0\"\r')
+        UTILS.atcmd('AT#WSCRIPT=\"'+D['upload']+ ',' +UTILS.size() + ', 0\"\r', ser)
     elif  case == 5:
-        UTILS.atcmd('AT#ESCRIPT="'+D['exe']+ ',' +UTILS.size() + ', 0\"\r')
+        UTILS.atcmd('AT#ESCRIPT="'+D['exe']+ ',' +UTILS.size() + ', 0\"\r', ser)
     elif  case == 6:
-        UTILS.atcmd('AT#SHDN\r')
+        UTILS.atcmd('AT#SHDN\r', ser)
         print "Telit is off, bye !"
     elif  case == 7:
         print "Bye !\r\n"

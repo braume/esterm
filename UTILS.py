@@ -7,18 +7,23 @@ import UTILS
 
 def open_ser_list(registry_path):
     ''' Take data for the serial port from the registry
-        Try each COM port until AT test is OK
+        Try each COM port until AT test is OK and return the connected one
     '''
+    ser =''
     try:
         key = 0
         key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, registry_path, 0, _winreg.KEY_READ)
         i=0
+        D = UTILS.getINI('parameters.ini')
         while(1):
             try:
                 name, data, type = _winreg.EnumValue(key, i)
                 i+=1
-                UTILS.open_ser(data)
+                if 'OK' in UTILS.open_ser(data)[0]:
+                    ser = serial.Serial(data, int(D['baudrate']), timeout=0)
+                    break
             except UnicodeDecodeError, u:
+                print name, data, type
                 print 'UNICODE ERROR:', u, '\n'
                 pass
             except WindowsError:
@@ -29,18 +34,25 @@ def open_ser_list(registry_path):
         _winreg.CloseKey(key)
     except WindowsError, w:
         print 'WRONG KEY REGISTRY:', w
+    return ser
+        
 
 def open_ser(port):
-    ''' Open a serial port with an atok test catching possible errors
+    ''' Open a serial port with an atok test catching possible errors.
+        Return :
+            res -> ok if the AT test succeed, nothing otherwise.
+            ser -> the last opened serial port
     '''
     D = UTILS.getINI('parameters.ini')
+    res = ''
+    ser = ''
     try:
         ser = serial.Serial(port, int(D['baudrate']), timeout=0)
         res = UTILS.atcmd('AT\r', ser)
         if 'OK' in res:
-            print "Port " + ser.portstr +  " is conected to the Telit modem.\n"
+            print "Port " + ser.portstr +  " is connected to the Telit modem.\n"
         else:
-            print "Port " + ser.portstr +  " is not conected to the Telit modem.\n"
+            print "Port " + ser.portstr +  " is not connected to the Telit modem.\n"
     except serial.SerialException, s:
         print 'BUSY PORT:', s
     except AttributeError, a:
@@ -49,11 +61,13 @@ def open_ser(port):
         print 'NAME ERROR:', n
     else:
         pass
-    return 0
+    return res, ser
     
     
 def atcmd(cmd, ser):
-    ''' Generic send of AT command '''
+    ''' Generic send of AT command
+        Return the echo and the result of the AT command (see ATE0\r for echo)
+    '''
     ser.write(cmd)
     UTILS.sleep(1)
     start=time.time()
