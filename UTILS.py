@@ -1,8 +1,14 @@
-﻿import time
+﻿#-*- coding:utf-8 -*-
+import time
 import _winreg
 import serial
+import os
+import UTILS
 
 def open_ser_list(registry_path):
+    ''' Take data for the serial port from the registry
+        Try each COM port until AT test is OK
+    '''
     try:
         key = 0
         key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, registry_path, 0, _winreg.KEY_READ)
@@ -10,46 +16,65 @@ def open_ser_list(registry_path):
         while(1):
             try:
                 name, data, type = _winreg.EnumValue(key, i)
-                open_ser(data)
                 i+=1
+                UTILS.open_ser(data)
+            except UnicodeDecodeError, u:
+                print 'UNICODE ERROR:', u, '\n'
+                pass
             except WindowsError:
                 print 'End of list'
                 exit(0)
+            else:
+                pass
         _winreg.CloseKey(key)
     except WindowsError, w:
         print 'WRONG KEY REGISTRY:', w
 
 def open_ser(port):
-    D = getINI('parameters.ini')
+    ''' Open a serial port with an atok test catching possible errors
+    '''
+    D = UTILS.getINI('parameters.ini')
     try:
-        # ser = serial.Serial(int(D['port_number'])-1, int(D['baudrate']), timeout=0)
-        print 'youhou'
         ser = serial.Serial(port, int(D['baudrate']), timeout=0)
+        res = UTILS.atcmd('AT\r', ser)
+        if 'OK' in res:
+            print "Port " + ser.portstr +  " is conected to the Telit modem.\n"
+        else:
+            print "Port " + ser.portstr +  " is not conected to the Telit modem.\n"
     except serial.SerialException, s:
         print 'BUSY PORT:', s
-        exit(1)
     except AttributeError, a:
         print 'ATTRIBUTE ERROR:', a
-        exit(1)
     except NameError, n:
         print 'NAME ERROR:', n
-        exit(1)
-        
-def atok(ser):
-    ser.write('AT\r')
+    else:
+        pass
+    return 0
+    
+    
+def atcmd(cmd, ser):
+    ''' Generic send of AT command '''
+    ser.write(cmd)
     UTILS.sleep(1)
     start=time.time()
-    while ser.inWaiting()>0:
+    res = ''
+    # While buffer has something in it
+    while ser.inWaiting() > 0:
         res = ser.read(888)
         print res
-    print 'End after {0} secondes\n'.format(float(time.time()-start))
-    if 'OK' in res:
-        print "\nThe port " + ser.portstr +  " is open."
-    else:
-        print "\nThe port " + ser.portstr +  " is not open."    
+    print 'End after {0} secondes'.format(float(time.time()-start))
+    return res
+    
+    
+def size():
+    '''Give size of the file in path upload'''
+    p = D['path'][:-1]
+    u = D['upload'][:-1]
+    return int(os.path.getsize(p + u))
+
+    
 def sleep(tenthOfSec):
-    '''Make a pause in the script in tenth of second.
-    '''
+    ''' Make a pause in the script in tenth of second '''
     sec = float(float(tenthOfSec)/10.0)
     time.sleep(sec)
     return 0

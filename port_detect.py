@@ -12,7 +12,7 @@ try:
     while(1):
         try:
             name, data, type = _winreg.EnumValue(key, i)
-            print data
+            print name, data, type
             i+=1
         except WindowsError:
             print 'End of list'
@@ -20,4 +20,3 @@ try:
     _winreg.CloseKey(key)
 except WindowsError, w:
     print 'WRONG KEY REGISTRY:', w
-    
