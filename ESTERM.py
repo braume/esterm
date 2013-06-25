@@ -42,7 +42,8 @@ while 1:
     elif case == 3:
         UTILS.atcmd('AT+CSQ\r', ser)
     elif case == 4:
-        UTILS.atcmd('AT#WSCRIPT=\"'+D['upload']+ '\",' +str(size()) + '\r', ser)
+        UTILS.atcmd('AT#WSCRIPT=\"'+D['upload']+ '\",' +str(size()) + '\r',
+                    ser, True, True)
     elif  case == 5:
         UTILS.atcmd('AT#ESCRIPT="'+D['exe']+ ',' +str(size()) + '\r', ser)
     elif  case == 6:

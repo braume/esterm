@@ -3,7 +3,6 @@ import time
 import _winreg
 import serial
 import os
-import re
 import UTILS
 
 def open_ser_list(registry_path):
@@ -53,7 +52,7 @@ def open_ser(port):
     res = ''
     ser = ''
     try:
-        ser = serial.Serial(port, int(D['baudrate']), timeout=5)
+        ser = serial.Serial(port, int(D['baudrate']), timeout=0)
         res = UTILS.atcmd('AT\r', ser, False)
     except serial.SerialException, s:
         print 'BUSY PORT:', s
@@ -75,8 +74,11 @@ def atcmd(cmd, ser, dis=True, waitok=False):
     start = time.time()
     res = ''
     # While buffer has something in it
-    while ser.inWaiting() > 0 | waitok:
+    while ser.inWaiting() > 0 or waitok:
         res = ser.read(888)
+        print res.find('>>>')
+        # while res.find('>>>'):
+            # UTILS.sleep(5)
         if dis:
             print res
             # print 'End after {0} secondes'.format(float(time.time()-start), 0.00)
