@@ -3,37 +3,43 @@ import time
 import _winreg
 import serial
 import os
+import re
 import UTILS
 
 def open_ser_list(registry_path):
-    ''' Take data for the serial port from the registry
-        Try each COM port until AT test is OK and return the connected one
+    ''' Take data from the registry for the serial port and try each COM port until AT test is OK.
+        Return the serial port conected to the Telit
     '''
     ser =''
     try:
         key = 0
         key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, registry_path, 0, _winreg.KEY_READ)
-        i=0
         D = UTILS.getINI('parameters.ini')
+        i = 0
         while(1):
             try:
                 name, data, type = _winreg.EnumValue(key, i)
                 i+=1
-                if 'OK' in UTILS.open_ser(data)[0]:
-                    ser = serial.Serial(data, int(D['baudrate']), timeout=0)
-                    break
+                res, ser = UTILS.open_ser(data)
+            # Raise a SerialException which raise a UnicodeException with 'accès refusé'.
+            # Replacing %s,%s by %r,%r line 59 of seriawin32.py would correct it.
             except UnicodeDecodeError, u:
-                print name, data, type
-                print 'UNICODE ERROR:', u, '\n'
-                pass
+                print data, 'is already used.'
+            # Raised at the end of the list.
             except WindowsError:
-                print 'End of list'
+                print 'The modem is not connected, check the cable or the drivers'
                 exit(0)
             else:
-                pass
+                if 'OK' in res:
+                    print '\n', data, "is connected to the Telit modem.\n"
+                    break
+                else:
+                    print data +  " is not connected to the Telit modem."
+            
         _winreg.CloseKey(key)
     except WindowsError, w:
         print 'WRONG KEY REGISTRY:', w
+        exit(0)
     return ser
         
 
@@ -41,18 +47,14 @@ def open_ser(port):
     ''' Open a serial port with an atok test catching possible errors.
         Return :
             res -> ok if the AT test succeed, nothing otherwise.
-            ser -> the last opened serial port
+            ser -> the serial port
     '''
     D = UTILS.getINI('parameters.ini')
     res = ''
     ser = ''
     try:
-        ser = serial.Serial(port, int(D['baudrate']), timeout=0)
-        res = UTILS.atcmd('AT\r', ser)
-        if 'OK' in res:
-            print "Port " + ser.portstr +  " is connected to the Telit modem.\n"
-        else:
-            print "Port " + ser.portstr +  " is not connected to the Telit modem.\n"
+        ser = serial.Serial(port, int(D['baudrate']), timeout=5)
+        res = UTILS.atcmd('AT\r', ser, False)
     except serial.SerialException, s:
         print 'BUSY PORT:', s
     except AttributeError, a:
@@ -64,29 +66,23 @@ def open_ser(port):
     return res, ser
     
     
-def atcmd(cmd, ser):
-    ''' Generic send of AT command
-        Return the echo and the result of the AT command (see ATE0\r for echo)
+def atcmd(cmd, ser, dis=True, waitok=False):
+    ''' Send AT command (cmd) on the serial port (ser) displaying by default the result
+        Return the echo and the result of the AT command (see ATE0\r for enable/disable the echo)
     '''
     ser.write(cmd)
     UTILS.sleep(1)
-    start=time.time()
+    start = time.time()
     res = ''
     # While buffer has something in it
-    while ser.inWaiting() > 0:
+    while ser.inWaiting() > 0 | waitok:
         res = ser.read(888)
-        print res
-    print 'End after {0} secondes'.format(float(time.time()-start))
+        if dis:
+            print res
+            # print 'End after {0} secondes'.format(float(time.time()-start), 0.00)
     return res
-    
-    
-def size():
-    '''Give size of the file in path upload'''
-    p = D['path'][:-1]
-    u = D['upload'][:-1]
-    return int(os.path.getsize(p + u))
 
-    
+
 def sleep(tenthOfSec):
     ''' Make a pause in the script in tenth of second '''
     sec = float(float(tenthOfSec)/10.0)
@@ -94,18 +90,18 @@ def sleep(tenthOfSec):
     return 0
 
 
-def getINI(fichier):
-    ''' Return a dictionary based on 'fichier' '''
-    D = {}
+def getINI(file):
+    ''' Return a dictionnary from file '''
+    D={}
     # fichier = '/sys/' + fichier
     # Ouverture du fichier
-    f = open(fichier, 'r')
+    f = open(file, 'r')
     # Lecture de la première ligne
     line = f.readline()
     # Tant qu'on est pas arrivé à la fin du fichier
-    while (line != ''):
-        # Si ce n'est pas la dernière ligne, on enlève le CRLF
-        line = line[:-1]
+    while (line != ''):            
+        # Removal of CRLF
+        line = line.rstrip('\r\n')
         # S'il y a un commentaire en fin de ligne
         if (line.find('#') != -1):
             # On ne prend pas en compte le commentaire
