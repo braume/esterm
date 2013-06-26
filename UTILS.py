@@ -5,6 +5,27 @@ import serial
 import os
 import UTILS
 
+
+def test_connexion(res, port, ser):
+    ''' Check the connexion Telit-computer and if connected, initialize pin code.
+        Take result of AT\r response, current port tested and current serial connexion.
+        Return the state of the connexion
+    '''
+    D = UTILS.getINI('parameters.ini')
+    conn = False
+    if 'OK' in res:
+        conn = True
+        UTILS.atcmd('AT+CPIN='+ D['pin'], ser, False)
+        pin = UTILS.atcmd('AT+CPIN?',ser, False)
+        if pin.find('READY') != -1:
+            print '\n', port, "is connected to the Telit modem and Pin code is initialized."
+        else:
+            print '\n', port, "is connected to the Telit modem and Pin code is not initialized."
+    else:
+        print port +  " is not connected to the Telit modem."
+    return conn
+
+
 def open_ser_list(registry_path):
     ''' Take data from the registry for the serial port and try each COM port until AT test is OK.
         Return the serial port conected to the Telit
@@ -13,7 +34,6 @@ def open_ser_list(registry_path):
     try:
         key = 0
         key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, registry_path, 0, _winreg.KEY_READ)
-        D = UTILS.getINI('parameters.ini')
         i = 0
         while(1):
             try:
@@ -29,12 +49,12 @@ def open_ser_list(registry_path):
                 print 'The modem is not connected, check the cable or the drivers'
                 exit(0)
             else:
-                if 'OK' in res:
-                    print '\n', data, "is connected to the Telit modem.\n"
+            # Send an escape sequence in case the modem is not in command mode
+                UTILS.sleep(1)
+                UTILS.atcmd('+++', ser, False)
+                con = UTILS.test_connexion(res, data, ser)
+                if con:
                     break
-                else:
-                    print data +  " is not connected to the Telit modem."
-            
         _winreg.CloseKey(key)
     except WindowsError, w:
         print 'WRONG KEY REGISTRY:', w
@@ -44,16 +64,15 @@ def open_ser_list(registry_path):
 
 def open_ser(port):
     ''' Open a serial port with an atok test catching possible errors.
-        Return :
-            res -> ok if the AT test succeed, nothing otherwise.
-            ser -> the serial port
+        Return : res - OK if the AT test succeed, nothing otherwise.
+                 ser - The serial port.
     '''
     D = UTILS.getINI('parameters.ini')
     res = ''
     ser = ''
     try:
         ser = serial.Serial(port, int(D['baudrate']), timeout=0)
-        res = UTILS.atcmd('AT\r', ser, False)
+        res = UTILS.atcmd('AT', ser, False)
     except serial.SerialException, s:
         print 'BUSY PORT:', s
     except AttributeError, a:
@@ -65,23 +84,29 @@ def open_ser(port):
     return res, ser
     
     
-def atcmd(cmd, ser, dis=True, waitok=False):
+def atcmd(cmd, ser, dis=True, wscript=False):
     ''' Send AT command (cmd) on the serial port (ser) displaying by default the result
         Return the echo and the result of the AT command (see ATE0\r for enable/disable the echo)
     '''
-    ser.write(cmd)
+    ser.write(cmd + '\r')
     UTILS.sleep(1)
-    start = time.time()
+    # start = time.time()
     res = ''
     # While buffer has something in it
-    while ser.inWaiting() > 0 or waitok:
+    while ser.inWaiting() > 0:
         res = ser.read(888)
-        print res.find('>>>')
-        # while res.find('>>>'):
-            # UTILS.sleep(5)
         if dis:
             print res
-            # print 'End after {0} secondes'.format(float(time.time()-start), 0.00)
+    if wscript:
+        D = UTILS.getINI('parameters.ini')
+        with open(D['path']+D['upload'], 'rb') as f:
+            res = atcmd(f.read(), ser, True)
+            while not res.find('OK'):
+                UTILS.sleep(3)
+                ser.read(888)
+                if dis:
+                    print res
+        # print 'End after {0} secondes'.format(float(time.time()-start), 0.00)
     return res
 
 
