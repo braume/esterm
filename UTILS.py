@@ -4,12 +4,13 @@ import _winreg
 import serial
 import os
 import UTILS
+import time
 
 
 def test_connexion(res, port, ser):
     ''' Check the connexion Telit-computer and if connected, initialize pin code.
         Take result of AT\r response, current port tested and current serial connexion.
-        Return the state of the connexion
+        Return the state of the connexion (True or False)
     '''
     D = UTILS.getINI('parameters.ini')
     conn = False
@@ -22,7 +23,8 @@ def test_connexion(res, port, ser):
         else:
             print '\n', port, "is connected to the Telit modem and Pin code is not initialized."
     else:
-        print port +  " is not connected to the Telit modem."
+        # print port +  " is not connected to the Telit modem."
+        pass
     return conn
 
 
@@ -43,15 +45,14 @@ def open_ser_list(registry_path):
             # Raise a SerialException which raise a UnicodeException with 'accès refusé'.
             # Replacing %s,%s by %r,%r line 59 of seriawin32.py would correct it.
             except UnicodeDecodeError, u:
-                print data, 'is already used.'
+                # print data, 'is already used.'
+                pass
             # Raised at the end of the list.
             except WindowsError:
                 print 'The modem is not connected, check the cable or the drivers'
                 exit(0)
             else:
             # Send an escape sequence in case the modem is not in command mode
-                UTILS.sleep(1)
-                UTILS.atcmd('+++', ser, False)
                 con = UTILS.test_connexion(res, data, ser)
                 if con:
                     break
@@ -60,7 +61,7 @@ def open_ser_list(registry_path):
         print 'WRONG KEY REGISTRY:', w
         exit(0)
     return ser
-        
+
 
 def open_ser(port):
     ''' Open a serial port with an atok test catching possible errors.
@@ -71,8 +72,9 @@ def open_ser(port):
     res = ''
     ser = ''
     try:
-        ser = serial.Serial(port, int(D['baudrate']), timeout=0)
-        res = UTILS.atcmd('AT', ser, False)
+        ser = serial.Serial(port, int(D['baudrate']), timeout=0, rtscts = True)
+        print str(ser)
+        # res = UTILS.atcmd('AT', ser, True)
     except serial.SerialException, s:
         print 'BUSY PORT:', s
     except AttributeError, a:
@@ -84,7 +86,7 @@ def open_ser(port):
     return res, ser
     
     
-def atcmd(cmd, ser, dis=True, wscript=False):
+def atcmd(cmd, ser, dis=True, wscript = False):
     ''' Send AT command (cmd) on the serial port (ser) displaying by default the result
         Return the echo and the result of the AT command (see ATE0\r for enable/disable the echo)
     '''
@@ -97,15 +99,14 @@ def atcmd(cmd, ser, dis=True, wscript=False):
         res = ser.read(888)
         if dis:
             print res
+    # If we have a wscript prompt
     if wscript:
         D = UTILS.getINI('parameters.ini')
         with open(D['path']+D['upload'], 'rb') as f:
-            res = atcmd(f.read(), ser, True)
+            ser.write(f.read())
+            UTILS.sleep(1)
             while not res.find('OK'):
-                UTILS.sleep(3)
-                ser.read(888)
-                if dis:
-                    print res
+                res = ser.read(888)
         # print 'End after {0} secondes'.format(float(time.time()-start), 0.00)
     return res
 
@@ -120,28 +121,14 @@ def sleep(tenthOfSec):
 def getINI(file):
     ''' Return a dictionnary from file '''
     D={}
-    # fichier = '/sys/' + fichier
-    # Ouverture du fichier
-    f = open(file, 'r')
-    # Lecture de la première ligne
-    line = f.readline()
-    # Tant qu'on est pas arrivé à la fin du fichier
-    while (line != ''):            
-        # Removal of CRLF
-        line = line.rstrip('\r\n')
-        # S'il y a un commentaire en fin de ligne
-        if (line.find('#') != -1):
-            # On ne prend pas en compte le commentaire
-            line = line[0:line.find('#')]
-        # S'il y a un "=" dans la ligne
+    # file = '/sys/' + file (while file in Telit)
+    f = open("parameters.ini")
+    for line in f:
         if (line.find('=') != -1):
-            # On découpe la ligne autour du "="
+            line = line.rstrip('\r\n')
             parts = line.split('=')
-            # On stocke tout dans le tableau (D['Code_pin'] = '0000')
             D[parts[0]] = parts[1]
-        # On lit la ligne suivante
-        line = f.readline()
-    # Fermeture du fichier
     f.close()
-    
     return D
+    
+    

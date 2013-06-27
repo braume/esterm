@@ -55,7 +55,12 @@ while 1:
                     elif case == 2:
                         UTILS.atcmd('AT#WSCRIPT=\"'+D['upload']+ '\",' +str(size()), ser, True, True)
                     elif  case == 3:
-                        UTILS.atcmd('AT#ESCRIPT="'+D['exe']+ ',' +str(size()), ser)
+                        UTILS.atcmd('AT#ESCRIPT="'+D['exe']+ '\"', ser)
+                        UTILS.atcmd('AT#EXECSCR', ser)
+                        UTILS.sleep(3)
+                        while ser.inWaiting() > 0:
+                            res = ser.read(10000)
+                            print res
                     elif  case == 4:
                         UTILS.atcmd('AT#SHDN', ser)
                         print "Telit is off, bye !"
