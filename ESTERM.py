@@ -5,10 +5,9 @@ import os
 D = UTILS.getINI('parameters.ini')
 ser = UTILS.open_ser_list(D['registry_path'])
     
-def size():
+def size(u):
     '''Give size of the file in path upload'''
     p = D['path']
-    u = D['upload']
     return int(os.path.getsize(p + u))
 
 D = UTILS.getINI('parameters.ini')
@@ -53,7 +52,13 @@ while 1:
                     if case == 1:
                         UTILS.atcmd('AT+CSQ', ser)
                     elif case == 2:
-                        UTILS.atcmd('AT#WSCRIPT=\"'+D['upload']+ '\",' +str(size()), ser, True, True)
+                        while 1:
+                            try:
+                                script = str(raw_input("Which script:\n >>  "))
+                                UTILS.atcmd('AT#WSCRIPT=\"'+script+ '\",' +str(size(script)), ser, True, True, script)
+                            except KeyboardInterrupt:
+                                break
+                        
                     elif  case == 3:
                         UTILS.atcmd('AT#ESCRIPT="'+D['exe']+ '\"', ser)
                         UTILS.atcmd('AT#EXECSCR', ser)
@@ -67,7 +72,12 @@ while 1:
                     elif  case == 5:
                         UTILS.atcmd('AT#LSCRIPT', ser)
                     elif  case == 6:
-                        UTILS.atcmd('AT#DSCRIPT=\"'+D['delete']+ '\"', ser)
+                        while 1:
+                            try:
+                                script = str(raw_input("Which script:\n >>  "))
+                                UTILS.atcmd('AT#DSCRIPT=\"'+script+ '\"', ser)
+                            except KeyboardInterrupt:
+                                break
                     elif  case == 7:
                         UTILS.atcmd('AT#ENHRST=0', ser)
                     elif  case == 8:

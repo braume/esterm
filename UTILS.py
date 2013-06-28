@@ -7,12 +7,14 @@ import UTILS
 import time
 
 
-def test_connexion(res, port, ser):
+def test_connexion(port, ser):
     ''' Check the connexion Telit-computer and if connected, initialize pin code.
         Take result of AT\r response, current port tested and current serial connexion.
         Return the state of the connexion (True or False)
     '''
     D = UTILS.getINI('parameters.ini')
+    UTILS.atcmd('+++', ser, False)
+    res = UTILS.atcmd('AT', ser, False)
     conn = False
     if 'OK' in res:
         conn = True
@@ -23,7 +25,7 @@ def test_connexion(res, port, ser):
         else:
             print '\n', port, "is connected to the Telit modem and Pin code is not initialized."
     else:
-        # print port +  " is not connected to the Telit modem."
+        print port +  " is not connected to the Telit modem."
         pass
     return conn
 
@@ -41,11 +43,11 @@ def open_ser_list(registry_path):
             try:
                 name, data, type = _winreg.EnumValue(key, i)
                 i+=1
-                res, ser = UTILS.open_ser(data)
+                ser = UTILS.open_ser(data)
             # Raise a SerialException which raise a UnicodeException with 'accès refusé'.
             # Replacing %s,%s by %r,%r line 59 of seriawin32.py would correct it.
             except UnicodeDecodeError, u:
-                # print data, 'is already used.'
+                print data, 'is already used.'
                 pass
             # Raised at the end of the list.
             except WindowsError:
@@ -53,7 +55,7 @@ def open_ser_list(registry_path):
                 exit(0)
             else:
             # Send an escape sequence in case the modem is not in command mode
-                con = UTILS.test_connexion(res, data, ser)
+                con = UTILS.test_connexion(data, ser)
                 if con:
                     break
         _winreg.CloseKey(key)
@@ -64,16 +66,13 @@ def open_ser_list(registry_path):
 
 
 def open_ser(port):
-    ''' Open a serial port with an atok test catching possible errors.
-        Return : res - OK if the AT test succeed, nothing otherwise.
-                 ser - The serial port.
+    ''' Open a serial port catching possible errors.
+        Return : ser - The serial port.
     '''
     D = UTILS.getINI('parameters.ini')
-    res = ''
     ser = ''
     try:
-        ser = serial.Serial(port, int(D['baudrate']), timeout=0, rtscts = True)
-        print str(ser)
+        ser = serial.Serial(port, int(D['baudrate']), timeout=0)
         # res = UTILS.atcmd('AT', ser, True)
     except serial.SerialException, s:
         print 'BUSY PORT:', s
@@ -83,10 +82,10 @@ def open_ser(port):
         print 'NAME ERROR:', n
     else:
         pass
-    return res, ser
+    return ser
     
     
-def atcmd(cmd, ser, dis=True, wscript = False):
+def atcmd(cmd, ser, dis=True, wscript = False, script = ''):
     ''' Send AT command (cmd) on the serial port (ser) displaying by default the result
         Return the echo and the result of the AT command (see ATE0\r for enable/disable the echo)
     '''
@@ -102,7 +101,7 @@ def atcmd(cmd, ser, dis=True, wscript = False):
     # If we have a wscript prompt
     if wscript:
         D = UTILS.getINI('parameters.ini')
-        with open(D['path']+D['upload'], 'rb') as f:
+        with open(D['path']+ script, 'rb') as f:
             ser.write(f.read())
             UTILS.sleep(1)
             while not res.find('OK'):
