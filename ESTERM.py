@@ -1,9 +1,11 @@
 #-*- coding:utf-8 -*-
-import UTILS
+import TOOLS
 import os
 
-D = UTILS.getINI('parameters.ini')
-ser = UTILS.open_ser_list(D['registry_path'])
+
+
+D = TOOLS.getINI('parameters.ini')
+ser = TOOLS.open_ser_list(D['registry_path'])
     
 def size(u):
     '''Give size of the file in path upload'''
@@ -16,29 +18,33 @@ def size(u):
         res = -1
     return res
 
-D = UTILS.getINI('parameters.ini')
+D = TOOLS.getINI('parameters.ini')
 
 disp = 1
 while 1:
     if disp == 1:
         print """
         Welcome to Esterm !
-    --------------------------
-    | 1-AT commands sample   |
-    | 2-Upload script        |
-    | Ctrl+C to exit         |
-    --------------------------
+    ----------------------------
+    | 1-AT commands sample     |
+    | 2-Upload script          |
+    | Ctrl+C to exit           |
+    |--------------------------|
+    | 'Menu' to display it     |
+    ----------------------------
     """
         disp = 0
     try:
         cmd = raw_input(">")
+        cmd = int(cmd)
     except KeyboardInterrupt:
         break
-        
-    try:
-        cmd = int(cmd)
     except ValueError:
-        UTILS.atcmd(cmd, ser)
+        if cmd.lower() != 'menu':
+            TOOLS.atcmd(cmd, ser)
+        else:
+            disp = 1
+            pass
     else:
         if cmd == 1:
             while 1:
@@ -68,38 +74,38 @@ while 1:
                     break
                 else:
                     if case == 1:
-                        UTILS.atcmd('AT+CSQ', ser)
+                        TOOLS.atcmd('AT+CSQ', ser)
                     elif  case == 2:
                         try:
                             script = str(raw_input("Which script:\n >>  "))
-                            UTILS.atcmd('AT#ESCRIPT="'+script+ '\"', ser)
-                            UTILS.atcmd('AT#EXECSCR', ser)
+                            TOOLS.atcmd('AT#ESCRIPT="'+script+ '\"', ser)
+                            TOOLS.atcmd('AT#EXECSCR', ser)
                         except KeyboardInterrupt:
                             break
                     elif  case == 3:
                         while 1:
                             try:
                                 script = str(raw_input("Which script:\n >>  "))
-                                UTILS.atcmd('AT#RSCRIPT=\"'+ script +'\"', ser)
+                                TOOLS.atcmd('AT#RSCRIPT=\"'+ script +'\"', ser)
                             except KeyboardInterrupt:
                                 break
                     elif  case == 4:
-                        UTILS.atcmd('AT#LSCRIPT', ser)
+                        TOOLS.atcmd('AT#LSCRIPT', ser)
                     elif  case == 5:
                         while 1:
                             try:
                                 script = str(raw_input("Which script:\n >>  "))
-                                UTILS.atcmd('AT#DSCRIPT=\"'+script+ '\"', ser)
+                                TOOLS.atcmd('AT#DSCRIPT=\"'+script+ '\"', ser)
                             except KeyboardInterrupt:
                                 break
                     elif  case == 6:
-                        UTILS.atcmd('AT#ENHRST=0', ser)
+                        TOOLS.atcmd('AT#ENHRST=0', ser)
                     elif  case == 7:
-                        UTILS.atcmd('AT#ENHRST?', ser)
+                        TOOLS.atcmd('AT#ENHRST?', ser)
                     elif  case == 8:
-                        UTILS.atcmd('AT#ESCRIPT?', ser)
+                        TOOLS.atcmd('AT#ESCRIPT?', ser)
                     elif  case == 9:
-                        UTILS.atcmd('AT#SHDN', ser)
+                        TOOLS.atcmd('AT#SHDN', ser)
                         print "Telit is off, bye !"
                     else:
                         print "Please ...\r\n"
@@ -113,7 +119,7 @@ while 1:
                         length = size(s)
                         if length == -1:
                             break
-                        UTILS.atcmd('AT#WSCRIPT=\"'+ s + '\",' +str(length), ser, True, True)
+                        TOOLS.atcmd('AT#WSCRIPT=\"'+ s + '\",' +str(length), ser, True)
                 except KeyboardInterrupt:
                     disp = 1
                     break
