@@ -5,34 +5,13 @@ import serial
 import os
 import UTILS
 import time
-
-
-def test_connexion(res, port, ser):
-    ''' Check the connexion Telit-computer and if connected, initialize pin code.
-        Take result of AT\r response, current port tested and current serial connexion.
-        Return the state of the connexion (True or False)
-    '''
-    D = UTILS.getINI('parameters.ini')
-    conn = False
-    if 'OK' in res:
-        conn = True
-        UTILS.atcmd('AT+CPIN='+ D['pin'], ser, False)
-        pin = UTILS.atcmd('AT+CPIN?',ser, False)
-        if pin.find('READY') != -1:
-            print '\n', port, "is connected to the Telit modem and Pin code is initialized."
-        else:
-            print '\n', port, "is connected to the Telit modem and Pin code is not initialized."
-    else:
-        # print port +  " is not connected to the Telit modem."
-        pass
-    return conn
+import re
 
 
 def open_ser_list(registry_path):
     ''' Take data from the registry for the serial port and try each COM port until AT test is OK.
         Return the serial port conected to the Telit
     '''
-    ser =''
     try:
         key = 0
         key = _winreg.OpenKey(_winreg.HKEY_LOCAL_MACHINE, registry_path, 0, _winreg.KEY_READ)
@@ -41,21 +20,31 @@ def open_ser_list(registry_path):
             try:
                 name, data, type = _winreg.EnumValue(key, i)
                 i+=1
-                res, ser = UTILS.open_ser(data)
-            # Raise a SerialException which raise a UnicodeException with 'accès refusé'.
-            # Replacing %s,%s by %r,%r line 59 of seriawin32.py would correct it.
-            except UnicodeDecodeError, u:
-                # print data, 'is already used.'
-                pass
             # Raised at the end of the list.
             except WindowsError:
                 print 'The modem is not connected, check the cable or the drivers'
                 exit(0)
             else:
-            # Send an escape sequence in case the modem is not in command mode
-                con = UTILS.test_connexion(res, data, ser)
-                if con:
-                    break
+                ser = open_ser(data)
+                if ser != '':
+                    if ser.getCTS():
+                        res = UTILS.atcmd('AT', ser, False)
+                        if res.find('OK') != -1:
+                            D = UTILS.getINI('parameters.ini')
+                            UTILS.atcmd('AT+CPIN='+ D['pin'], ser, False)
+                            pin = UTILS.atcmd('AT+CPIN?',ser, False)
+                            if pin.find('READY') != -1:
+                                print '\n', data, "is connected to the Telit modem and Pin code is initialized."
+                                break
+                            else:
+                                print '\n', data, "is connected to the Telit modem and Pin code is not initialized."
+                                break
+                        else:
+                            # print data +  " is not connected to the Telit modem."    
+                            pass
+                    else:
+                        # print data +  " is not connected to the Telit modem."
+                        pass
         _winreg.CloseKey(key)
     except WindowsError, w:
         print 'WRONG KEY REGISTRY:', w
@@ -64,50 +53,62 @@ def open_ser_list(registry_path):
 
 
 def open_ser(port):
-    ''' Open a serial port with an atok test catching possible errors.
-        Return : res - OK if the AT test succeed, nothing otherwise.
-                 ser - The serial port.
+    ''' Open a serial port catching possible errors.
+        Return : ser - The serial port.
     '''
     D = UTILS.getINI('parameters.ini')
-    res = ''
     ser = ''
     try:
-        ser = serial.Serial(port, int(D['baudrate']), timeout=0, rtscts = True)
-        print str(ser)
-        # res = UTILS.atcmd('AT', ser, True)
+        ser = serial.Serial(port, int(D['baudrate']), rtscts = True, timeout=0.01)
+    # Raise a SerialException which raise a UnicodeException with 'accès refusé'.
+    # Replacing %s,%s by %r,%r line 59 of seriawin32.py would correct it.
+    except UnicodeDecodeError:
+        # print port, 'is already used.'
+        pass
     except serial.SerialException, s:
         print 'BUSY PORT:', s
     except AttributeError, a:
         print 'ATTRIBUTE ERROR:', a
     except NameError, n:
         print 'NAME ERROR:', n
-    else:
+    finally:
         pass
-    return res, ser
+    return ser
     
-    
+
 def atcmd(cmd, ser, dis=True, wscript = False):
     ''' Send AT command (cmd) on the serial port (ser) displaying by default the result
         Return the echo and the result of the AT command (see ATE0\r for enable/disable the echo)
     '''
+    # Write AT command in hte output buffer
     ser.write(cmd + '\r')
+    # Wait Telit to write in the input buffer
     UTILS.sleep(1)
-    # start = time.time()
     res = ''
-    # While buffer has something in it
-    while ser.inWaiting() > 0:
-        res = ser.read(888)
-        if dis:
-            print res
+    # While there is something in the input buffer add it to res
+    while ser.inWaiting()>0:
+        i = 0
+        while i < 512:
+            i+=1
+            res += ser.read(16)
+            if not ser.inWaiting()>0 or res.find('OK'):
+                break
+    if dis:
+        print res
     # If we have a wscript prompt
     if wscript:
+        script = cmd.split('"')
         D = UTILS.getINI('parameters.ini')
-        with open(D['path']+D['upload'], 'rb') as f:
+        with open(D['path']+ '\\'+ script[1], 'rb') as f:
+            start = float(time.time())
+            print 'Uploading:', script[1]
             ser.write(f.read())
             UTILS.sleep(1)
-            while not res.find('OK'):
-                res = ser.read(888)
-        # print 'End after {0} secondes'.format(float(time.time()-start), 0.00)
+            res = ser.read()
+            while res.find('OK') == -1:
+                res += ser.read()
+            print 'End after {0} secondes'.format(float(time.time()-start))
+            print res
     return res
 
 
@@ -117,6 +118,30 @@ def sleep(tenthOfSec):
     time.sleep(sec)
     return 0
 
+def file_dir(path):
+    ''' Give file of the specified directory'''
+    import os
+    os.chdir("C:\Python27\esterm")
+    for files in os.listdir("."):
+        res = files
+    return res
+    
+def tab(path):
+    import readline
+    
+    FILES = file_dir(path)
+
+    def complete(text, state):
+        for cmd in COMMANDS:
+            if cmd.startswith(text):
+                if not state:
+                    return cmd
+                else:
+                    state -= 1
+
+    readline.parse_and_bind("tab: complete")
+    readline.set_completer(complete)
+    raw_input('Enter section name: ')
 
 def getINI(file):
     ''' Return a dictionnary from file '''
