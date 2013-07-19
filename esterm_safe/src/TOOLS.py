@@ -11,7 +11,6 @@ def open_ser_list(registry_path):
     try:
         key = 0
         ser_usb = ''
-        ser_traceo = ''
         ser_serial = ''
         ser_debug = ''
         i = 0
@@ -24,82 +23,62 @@ def open_ser_list(registry_path):
                 i+=1
             # Raised at the end of the port list.
             except WindowsError, w:
-                U = 0
-                if ser_usb != '':
-                    print 'USB:', ser_usb.port
-                    U = 1
-                T = 0
-                if ser_traceo != '':
-                    print 'TRACEO:', ser_traceo.port
-                    T = 2
-                S = 0
-                if ser_serial != '':
-                    print 'SERIAL:', ser_serial.port
-                    S = 3
-                if ser_usb == '' and ser_traceo == '' and ser_serial == '':
-                    print 'Check the cable or the port availability.\n'
+                # Choose the return value of ser
+                if ser_usb != '' and ser_serial != '':
+                    print '\nUSB:', ser_usb.port
+                    print 'Serial: ', ser_serial.port
+                    choice = int(raw_input('1-USB   2-SERIAL\n>'))
+                    if choice == 1:
+                        ser = ser_usb
+                        break
+                    elif choice == 2:
+                        ser = ser_serial
+                        break
+                    else:
+                        print 'Please ...'
+                elif ser_usb == '' and ser_serial == '':
+                    print 'Check the cable, the drivers or the port availability.\n'
                     try:
-                        ser = ''
-                        # Come back at the first line in register
-                        i = 0
                         sleep(10)
                     except KeyboardInterrupt:
                         break
+                    # Come back at the first line in register
+                    i = 0
                 else:
-                    try:
-                        # Choose the return value of ser usb, traceo or serial
-                        choice = int(raw_input('1-USB  2-TRACEO  3-SERIAL\n>'))
-                        if choice == 1 and U != 0:
-                            ser = ser_usb
-                            print '    USB:', ser.port, 'connected'
-                            break
-                        elif choice == 2 and T != 0:
-                            ser = ser_traceo
-                            print '    TRACEO:', ser.port, 'connected'
-                            break
-                        elif choice == 3 and S != 0:
-                            ser = ser_serial
-                            print '    SERIAL:', ser.port, 'connected'
-                            break
-                        else:
-                            print 'Not available'
-                    except (KeyboardInterrupt,ValueError):
-                        i=0
-                        ser_usb = ''
-                        ser_traceo = ''
-                        ser_serial = ''
-                        ser_debug = ''
-                        # Close registry directory (=key)
-                        _winreg.CloseKey(key)
+                    if ser_serial != '':
+                        ser = ser_serial
+                        break
+                    else:
+                        ser = ser_usb
+                        break
             # Stock value of ser_usb, ser_serial, ser_debug if the connexion is valid
             else:
                 ser = open_ser(data)
                 if ser != '':
-                    print str(i)+')','getCTS:', ser.getCTS(), data
+                    print 'getCTS', ser.getCTS(), data
                     # DEBUG
                     if 'cdcacm1' in name.lower():
                         ser_debug = ser
-                        print 'DEBUG:', ser.port
-                    # USB or TRACEO usb
-                    elif (ser.getCTS() or  ser.rtscts == 0) and ('cdcacm' in name.lower() or 'vcp' in name.lower()):
-                        res = atcmd('AT', ser, True)
+                        print 'DEBUG:', ser_debug.port, '\n'
+                    # SERIAL (Traceo or classic)
+                    if 'serial' in name.lower():
+                        res = atcmd('AT', ser, False)
                         if 'traceoboard' in res.lower():
-                            ser_traceo = ser
-                            print 'USB_traceo:', ser.port
-                        if 'ok' in res.lower():
-                            init_pin_dog(ser, name, data)
-                            ser_usb = ser
-                            print 'USB:', ser.port
-                    # SERIAL or TRACEO serial
-                    if (ser.getCTS() or ser.rtscts == 0) and 'serial' in name.lower():
-                        res = atcmd('AT', ser, True)
-                        if 'traceoboard' in res.lower():
-                            ser_traceo = ser
-                            print 'SERIAL_traceo:', ser.port
+                            ser_serial = ser
                         if 'ok' in res.lower():
                             init_pin_dog(ser, name, data)
                             ser_serial = ser
-                            print 'SERIAL:', ser.port
+                            print 'SERIAL:', ser_serial.port
+                    # USB
+                    if ser.getCTS() == True and 'cdcacm' in name.lower():
+                        res = atcmd('AT', ser, False)
+                        if 'ok' in res.lower():
+                            init_pin_dog(ser, name, data)
+                            ser_usb = ser
+                            'USB:', ser_usb.port
+                        else:
+                            print data +  " is not connected to the Telit modem."    
+                            pass
         # Close registry directory (=key)
         _winreg.CloseKey(key)
     # Error when registry path is not correct
@@ -118,9 +97,9 @@ def init_pin_dog(ser, name, data):
     atcmd('AT+CPIN='+ D['pin'], ser, False)
     pin = atcmd('AT+CPIN?',ser, False)
     if 'READY' in pin:
-        print data, "is connected to the Telit modem and Pin code is initialized."
+        print data, "is connected to the Telit modem and Pin code is initialized.\n"
     else:
-        print data, "is connected to the Telit modem and Pin code is NOT initialized."
+        print data, "is connected to the Telit modem and Pin code is not initialized."
     return 0
 
 def open_ser(port):
@@ -150,67 +129,39 @@ def open_ser(port):
     
 
 def atcmd(cmd, ser, dis=True):
-    ''' Send AT command (cmd + '\r') on the serial port (ser) displaying by default the result
+    ''' Send AT command (cmd) on the serial port (ser) displaying by default the result
         Return the echo and the result of the AT command (see ATE0\r to disable echo)
     '''
     # Write AT command in the output buffer
-    res = ''
     while 1:
+        res = ''
         try:
-            # Manage hardware flow control
-            if ser.rtscts == 0:
-                ser.write(cmd + '\r')
-            elif ser.getCTS():
-                ser.write(cmd + '\r')
-            else:
-                res = ''
-                print '3: No CTS signal, passing to next at command (check hardware control)'
-                sleep(5)
-                break
+            # \r necessary to specify command ending
+            ser.write(cmd + '\r')
         except serial.SerialException, s:
             print s
-            print '2: Connexion was broken, use CTRL + C to start again\n'
+            print 'Connexion was broken: use CTRL + C to start again\n'
             break
         except KeyboardInterrupt:
             break
         else:
-            res = ''
-            cur = ''
-            in_data = False
+            # Wait Telit to write in the input buffer
+            sleep(1)
+            # While there is something in the buffer read it
+            i = 0
             try:
-                # 
-                start = time.time()
-                beg = time.time()
-                en = time.time()
-                pres = time.time()
-                # Time in second
-                while pres - start < 1 and pres - beg < 0.6 and pres - en < 0.15:
-                    cur = ser.read(1024)
-                    # Begin to receive data
-                    if cur != '' and not in_data:
-                        in_data = True
-                        start = time.time()
-                        beg = time.time()
-                        en = time.time()
-                    # Receive data
-                    if cur != '':
-                        start = time.time()
-                        en = time.time()
-                        res += cur
-                    else:
-                        beg = time.time()
-                    # End to receive data
-                    if cur == '' and in_data:
-                        in_data = False
-                        start = time.time()
-                        beg = time.time()
-                        en = time.time()
-                    pres = time.time()
-                    # if pres - start >= 10:
-                        # print '0: No answer'
-                print 'No response:', (pres - start), 'Time response', (pres - beg), 'Time after a response', (pres - en)
-                if dis:
+                res = ser.read(512)
+                if 'OK' in res or 'ERROR' in res or '>>>' in res or '<<<' in res or 'traceo' in res:
+                    if dis:
+                        print res
+                elif ser.inWaiting()>0:
+                    print '1'
+                    res = ser.read(512)
                     print res
+                    print 'A script is running, try to connect again\n'
+                    sleep(20)
+                else:
+                    print 'Telit is off or a script is running'
             except KeyboardInterrupt:
                 break
             # If we have an at#wscript
@@ -224,18 +175,13 @@ def atcmd(cmd, ser, dis=True):
                 try:
                     with open(D['path']+ "\\" + script[1], 'rb') as f:
                         start = float(time.time())
-                        print 'Start uploading:', script[1]
-                        sleep(2)
-                        res = ''
+                        print 'Uploading:', script[1]
                         ser.write(f.read())
-                        i = 0
-                        while not 'OK' in res or i < 10:
-                            sleep(0.1)
+                        sleep(1)
+                        res = ser.read()
+                        while not 'OK' in res:
                             res += ser.read()
-                            i+=1
-                        if dis:
-                            print res
-                        print 'End after {0} secondes'.format(float(time.time()-start))
+                        print 'End after {0} secondes'.format(float(time.time()-start)) + res
                 except IOError:
                     print 'Write the name correctly'
                     # Wait a response from the Telit module to download next file
@@ -245,11 +191,9 @@ def atcmd(cmd, ser, dis=True):
                     while not 'OK' in res:
                         res += ser.read()
                     print 'Downloading next file'
-                except KeyboardInterrupt:
-                    break
+                    pass
             if 'at#execscr' in cmd.lower():
                 D = getINI('parameters.ini')
-                res = ''
                 prev = ''
                 while 1:
                     res = prev + ser.read(int(D['quantity']))

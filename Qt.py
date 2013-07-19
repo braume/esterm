@@ -1,50 +1,38 @@
-#!/usr/bin/env python
-#-*- coding:utf-8 -*-
+import os
+import sys 
+from PyQt4.QtCore import * 
+from PyQt4.QtGui import * 
+ 
+def main(): 
+    app = QApplication(sys.argv) 
+    w = MyWindow() 
+    w.show() 
+    sys.exit(app.exec_()) 
+ 
+class MyWindow(QWidget): 
+    def __init__(self, *args): 
+        QWidget.__init__(self, *args) 
+ 
+        # create objects
+        label = QLabel(self.tr("Enter command and press Return"))
+        self.le = QLineEdit()
+        self.te = QTextEdit()
 
-from PyQt4 import QtGui, QtCore
+        # layout
+        layout = QVBoxLayout(self)
+        layout.addWidget(label)
+        layout.addWidget(self.le)
+        layout.addWidget(self.te)
+        self.setLayout(layout) 
 
-class MyStream(QtCore.QObject):
-    message = QtCore.pyqtSignal(str)
-    def __init__(self, parent=None):
-        super(MyStream, self).__init__(parent)
+        # create connection
+        self.connect(self.le, SIGNAL("returnPressed(void)"),
+                     self.run_command)
 
-    def write(self, message):
-        self.message.emit(str(message))
-
-class MyWindow(QtGui.QWidget):
-    def __init__(self, parent=None):
-        super(MyWindow, self).__init__(parent)
-
-        self.pushButtonPrint = QtGui.QPushButton(self)
-        self.pushButtonPrint.setText("Click Me!")
-        self.pushButtonPrint.clicked.connect(self.on_pushButtonPrint_clicked)
-
-        self.textEdit = QtGui.QTextEdit(self)
-
-        self.layoutVertical = QtGui.QVBoxLayout(self)
-        self.layoutVertical.addWidget(self.pushButtonPrint)
-        self.layoutVertical.addWidget(self.textEdit)
-
-    @QtCore.pyqtSlot()
-    def on_pushButtonPrint_clicked(self):
-        print "Button Clicked!"
-
-    @QtCore.pyqtSlot(str)
-    def on_myStream_message(self, message):
-        self.textEdit.moveCursor(QtGui.QTextCursor.End)
-        self.textEdit.insertPlainText(message)
-
-if __name__ == "__main__":
-    import sys
-
-    app = QtGui.QApplication(sys.argv)
-    app.setApplicationName('MyWindow')
-
-    main = MyWindow()
-    main.show()
-
-    myStream = MyStream()
-    myStream.message.connect(main.on_myStream_message)
-
-    sys.stdout = myStream        
-    sys.exit(app.exec_())
+    def run_command(self):
+        cmd = str(self.le.text())
+        stdouterr = os.popen4(cmd)[1].read()
+        self.te.setText(stdouterr)
+  
+if __name__ == "__main__": 
+    main()

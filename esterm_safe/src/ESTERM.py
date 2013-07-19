@@ -36,6 +36,8 @@ class Proc(threading.Thread):
 
 # Change color of text
 os.system("color 0A")
+# Enter parameters.ini in D
+D = TOOLS.getINI('parameters.ini')
 
 def size(u):
     '''Give size of the file in path upload (see parameters.ini)'''
@@ -55,38 +57,32 @@ start = 1 # Enable start
 
 while 1:
     if start == 1:
-        # Enter parameters.ini in D
-        D = TOOLS.getINI('parameters.ini')
-        ser, ser_debug = TOOLS.open_ser_list(D['registry_path'])
+        ser, ser_debug = TOOLS.open_ser_list(D['registry_path'])  
     start = 0
     # Monitor the binary file on the debug port
     if run_thread == True:
         fileDbg = Proc()
         fileDbg.start()
         run_thread = False
-    if ser == '':
-        break
+
     if disp == 1:
+        if ser != '':
+            print '\n      ', ser.port, 'connected'
         print """      Welcome to Esterm !
-    ------------------------------
-    | 1-AT commands sample       |
-    | 2-Upload                   |
-    | 3-Comp, del, up, ena, exe  |
-    | 4-Read                     |
-    | Ctrl+C start Esterm again  |
-    |----------------------------|
-    | 'Menu' to display it       |
-    ------------------------------
+    --------------------------------------------------------
+    | 1-AT commands sample                                 |
+    | 2-Upload                                             |
+    | 3-Compile all & Delete all & Upload all scripts      |
+    | Ctrl+C start Esterm again                            |
+    |------------------------------------------------------|
+    | 'Menu' to display it                                 |
+    --------------------------------------------------------
     """
         disp = 0
     try:
-        try:
-            with open(D['path']+ "\\" + D['main']): pass
-        except IOError:
-            print 'Wrong path or name in .ini\n'
         cmd = raw_input(">")
         cmd = int(cmd)
-    # CTRL + C is recognized as a keyboard interrupt
+    # CTRL + C is recognized as a keyboard interupt
     except KeyboardInterrupt:
         print "Starting Esterm again ..."
         ser.close()
@@ -102,7 +98,8 @@ while 1:
         if cmd == 1:
             while 1:
                 disp = 1
-                print """    ---------------------------
+                print """
+    ---------------------------
     0-Delete all script
     1-Signal quality
     2-Enable script & Execute
@@ -188,7 +185,7 @@ while 1:
                         TOOLS.atcmd('AT#SHDN', ser)
                         print "Telit is off, bye !"
                     elif  case == 11:
-                        TOOLS.atcmd('AT#ENHRST=1,0', ser)
+                        TOOLS.atcmd('AT#REBOOT', ser)
                         print "Telit is rebooting ..."
                     else:
                         print "Please ...\r\n"
@@ -231,8 +228,6 @@ while 1:
                         upscript = TOOLS.file_dir(D['path'])
                         for s in upscript:
                             TOOLS.atcmd('AT#WSCRIPT=\"'+ s + '\",' +str(size(s)), ser)
-                        TOOLS.atcmd('AT#ESCRIPT=\"'+ D['main'] + '\"', ser)
-                        TOOLS.atcmd('AT#EXECSCR', ser)
                         disp = 1
                         break
                     else:
@@ -242,43 +237,27 @@ while 1:
                     disp = 1
                     break
         elif cmd == 4:
-            D = TOOLS.getINI('parameters.ini')
-            res = ''
-            prev = ''
             while 1:
                 try:
-                    res = prev + ser.read(int(D['quantity']))
-                    prev = ''
-                    # Cut at the first line feed from the right (last one)
-                    split = res.rsplit('\n', 1)
-                    cur = split[0]
-                    prev = split[1]
-                    if cur != '' and prev != '':
-                        print cur
-                        cur = ''
-                    elif cur !=  '':
-                        print cur
-                        cur = ''
-                    elif cur == '':
-                        print '\n' + prev
-                        prev = ''
-                    else:
-                        pass
-                    TOOLS.sleep(int(D['velocity']))
-                except IndexError:
-                    if res != '':
-                        print res
+                    # "" for the command for space in name folders
+                    os.system("python -m compileall " + "\"" + D['path'] + "\"" )
+                except ValueError:
+                    print 'Wrong path for', D['path'] + D['compile_all']
                     pass
+                try:
+                    print "\nFile from "+ D['path'] + '\\'
+                    print TOOLS.file_dir(D['path'])
+                    script = str(raw_input("Separate script by space:\n >>  "))
+                    script = script.split(' ')
+                    for s in script:
+                        TOOLS.atcmd('AT#WSCRIPT=\"'+ s + '\",' +str(size(s)), ser, True)
+                    disp = 1
+                    break
                 except KeyboardInterrupt:
                     disp = 1
                     break
         else:
             print "Please ...\r\n"
 
-
 # close port
-if ser != '':
-    ser.close()
-
-print u'Appuyez sur ENTRÉE pour quitter.'
-raw_input()
+ser.close()

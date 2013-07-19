@@ -176,41 +176,32 @@ def atcmd(cmd, ser, dis=True):
         else:
             res = ''
             cur = ''
-            in_data = False
+            start = 0
+            start_data = 0
+            end = 0
+            end_data = 0
             try:
-                # 
+                # j: jump increase when there is no response (initialized after each response)
+                # wd: watchdog always end after 15 loops - duration: 15*15*15/3*0.01
+                # ans: if there is no answer we reduce wd to 10
                 start = time.time()
-                beg = time.time()
-                en = time.time()
-                pres = time.time()
-                # Time in second
-                while pres - start < 1 and pres - beg < 0.6 and pres - en < 0.15:
+                while or or end < 0.6:
                     cur = ser.read(1024)
-                    # Begin to receive data
-                    if cur != '' and not in_data:
-                        in_data = True
-                        start = time.time()
-                        beg = time.time()
-                        en = time.time()
-                    # Receive data
+                    # Add current reading to res, init jump, and count j init
                     if cur != '':
-                        start = time.time()
-                        en = time.time()
                         res += cur
+                        start_data = time.time()
+                        ans=0
+                    # Count jump if triggered
                     else:
-                        beg = time.time()
-                    # End to receive data
-                    if cur == '' and in_data:
-                        in_data = False
-                        start = time.time()
-                        beg = time.time()
-                        en = time.time()
-                    pres = time.time()
-                    # if pres - start >= 10:
-                        # print '0: No answer'
-                print 'No response:', (pres - start), 'Time response', (pres - beg), 'Time after a response', (pres - en)
-                if dis:
-                    print res
+                        end_data = time.time() - start_data
+                    sleep(0.1)
+                    end = time.time() - start
+                    if end > 
+                        print '0: No answer'
+                        print '1: A script is running'
+                print 'end:',end
+                print res
             except KeyboardInterrupt:
                 break
             # If we have an at#wscript
